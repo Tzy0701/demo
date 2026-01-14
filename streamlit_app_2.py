@@ -29,88 +29,76 @@ def get_local_ip():
 @st.dialog("Touchless Capture", width="medium")
 def scan_touchless_dialog(finger_key, finger_name):
 
-    username = st.session_state.username.replace(" ", "_")
-    TOUCHLESS_CAPTURE_URL = st.secrets["TOUCHLESS_CAPTURE_URL"]
-    capture_url = f"{TOUCHLESS_CAPTURE_URL}/capture/{username}/{finger_key}"
+    st.markdown(f"## 📱 Capture {finger_name} using Phone Camera")
+    st.markdown("Open this same page on your phone and take a photo.")
 
+    # uploader — on phone this opens camera automatically
+    uploaded = st.file_uploader(
+        "Take or upload fingerprint photo",
+        type=["jpg", "jpeg", "png"],
+        accept_multiple_files=False
+    )
 
-    st.markdown(f"### 📱 Scan this QR Code to capture {finger_name}")
+    if uploaded is None:
+        st.info("Waiting for phone capture...")
+        return
 
-    qr = qrcode.make(capture_url)
-    buf = BytesIO()
-    qr.save(buf)
-    st.image(buf.getvalue(), width=250)
+    # Read image bytes
+    img_bytes = uploaded.read()
 
-    st.markdown(f"Or open manually: `{capture_url}`")
+    # Show preview immediately
+    img = Image.open(io.BytesIO(img_bytes))
+    st.image(img, caption="Captured Touchless Fingerprint", use_container_width=True)
 
-    st.info("After uploading photo, close this dialog and press 'Refresh Status'")
+    # Convert to base64 and store in session
+    img_base64 = base64.b64encode(img_bytes).decode()
 
-    if st.button("🔄 Refresh Status"):
-        # Check if file exists
-        img_path = Path("results/captures") / username / finger_key / "touchless_capture.jpg"
-        if img_path.exists():
-            # Read image and convert to base64
-            with open(img_path, "rb") as f:
-                img_bytes = f.read()
-            img_base64 = base64.b64encode(img_bytes).decode()
+    st.session_state.fingerprints[finger_key] = {
+        "finger_id": finger_key,
+        "finger_full_name": finger_name,
+        "image_base64": img_base64,
+        "timestamp": time.time(),
+        "analysis": None
+    }
 
-           # Save into session
-            st.session_state.fingerprints[finger_key] = {
-                "finger_id": finger_key,
-                "finger_full_name": finger_name,
-                "image_path": str(img_path),
-                "image_base64": img_base64,
-                "timestamp": time.time(),
-                "analysis": None
+    # === Call Touchless API ===
+    TOUCHLESS_API_URL = API_URL   # reuse your configured backend
+
+    if st.button("🔬 Analyze Touchless Fingerprint", type="primary"):
+
+        with st.spinner("Analyzing..."):
+
+            files = {
+                "file": (
+                    "touchless.jpg",
+                    io.BytesIO(img_bytes),
+                    "image/jpeg"
+                )
             }
 
-            # === Call TOUCHLESS API immediately ===
-            TOUCHLESS_API_URL = "https://your-touchless-api.onrender.com"  
+            try:
+                response = requests.post(
+                    f"{TOUCHLESS_API_URL}/detect",
+                    files=files,
+                    timeout=60
+                )
 
-            with st.spinner("🔬 Analyzing touchless fingerprint..."):
+                if response.status_code == 200:
+                    result = response.json()
+                    st.session_state.fingerprints[finger_key]["analysis"] = result
+                    st.success("✅ Analysis completed")
 
-                files = {
-                    "file": (
-                        "touchless.jpg",
-                        io.BytesIO(img_bytes),
-                        "image/jpeg"
-                    )
-                }
+                    # close dialog after short delay
+                    time.sleep(1)
+                    del st.session_state.active_scan_finger
+                    st.rerun()
 
-                try:
-                    response = requests.post(
-                        f"{TOUCHLESS_API_URL}/detect",
-                        files=files,
-                        timeout=60
-                    )
+                else:
+                    st.error(f"API Error: {response.status_code}")
 
-                    if response.status_code == 200:
-                        result = response.json()
+            except Exception as e:
+                st.error(f"Cannot reach API: {e}")
 
-                        # Store analysis result
-                        st.session_state.fingerprints[finger_key]["analysis"] = result
-
-                        st.success("✅ Image received & analyzed successfully")
-                    else:
-                        st.session_state.fingerprints[finger_key]["analysis"] = {
-                            "success": False,
-                            "error": f"API error {response.status_code}"
-                        }
-                        st.warning("⚠️ Image saved but analysis failed")
-
-                except Exception as e:
-                    st.session_state.fingerprints[finger_key]["analysis"] = {
-                        "success": False,
-                        "error": str(e)
-                    }
-                    st.error("❌ Cannot reach Touchless API")
-
-            st.success("✅ Image received from phone")
-            time.sleep(1)
-            del st.session_state.active_scan_finger
-            st.rerun()
-        else:
-            st.warning("Waiting for upload...")
 
 
 # Page configuration
