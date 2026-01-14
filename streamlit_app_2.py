@@ -25,32 +25,35 @@ def get_local_ip():
     s.close()
     return ip
 
-
 @st.dialog("Touchless Capture", width="medium")
 def scan_touchless_dialog(finger_key, finger_name):
 
     st.markdown(f"## 📱 Capture {finger_name} using Phone Camera")
     st.markdown("Open this same page on your phone and take a photo.")
 
-    # uploader — on phone this opens camera automatically
+    # File uploader (key is REQUIRED so file persists across reruns)
     uploaded = st.file_uploader(
         "Take or upload fingerprint photo",
         type=["jpg", "jpeg", "png"],
-        accept_multiple_files=False
+        accept_multiple_files=False,
+        key="touchless_uploader"
     )
 
     if uploaded is None:
         st.info("Waiting for phone capture...")
         return
 
-    # Read image bytes
-    img_bytes = uploaded.read()
+    # Read image bytes once and cache in session
+    if "touchless_img_bytes" not in st.session_state:
+        st.session_state.touchless_img_bytes = uploaded.getvalue()
 
-    # Show preview immediately
+    img_bytes = st.session_state.touchless_img_bytes
+
+    # Preview
     img = Image.open(io.BytesIO(img_bytes))
     st.image(img, caption="Captured Touchless Fingerprint", use_container_width=True)
 
-    # Convert to base64 and store in session
+    # Store image in fingerprints session (so summary page works)
     img_base64 = base64.b64encode(img_bytes).decode()
 
     st.session_state.fingerprints[finger_key] = {
@@ -61,7 +64,12 @@ def scan_touchless_dialog(finger_key, finger_name):
         "analysis": None
     }
 
+    # Load API URL
     TOUCHLESS_API_URL = st.secrets.get("TOUCHLESS_API_URL", None)
+    if not TOUCHLESS_API_URL:
+        TOUCHLESS_API_URL = "http://localhost:8001"
+
+    # Analyze button
     if st.button("🔬 Analyze Touchless Fingerprint", type="primary"):
 
         with st.spinner("Analyzing..."):
@@ -84,10 +92,12 @@ def scan_touchless_dialog(finger_key, finger_name):
                 if response.status_code == 200:
                     result = response.json()
                     st.session_state.fingerprints[finger_key]["analysis"] = result
-                    st.success("✅ Analysis completed")
 
-                    # close dialog after short delay
+                    st.success("✅ Analysis completed")
                     time.sleep(1)
+
+                    # Cleanup uploader cache
+                    del st.session_state.touchless_img_bytes
                     del st.session_state.active_scan_finger
                     st.rerun()
 
@@ -96,7 +106,6 @@ def scan_touchless_dialog(finger_key, finger_name):
 
             except Exception as e:
                 st.error(f"Cannot reach API: {e}")
-
 
 
 # Page configuration
