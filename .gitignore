@@ -1,0 +1,35 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local tooling / generated config
+.mplconfig/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Large artifacts (don’t commit)
+*.pth
+*.pt
+*.onnx
+
+# Datasets (very large)
+dataset_raw/
+dataset_split/
+
+# Experiment outputs / plots (very large)
+results/
+results_baseline/
+results_finetune/
+results_two_stage/
+
+# Streamlit secrets (contains API URLs and sensitive config)
+.streamlit/secrets.toml
+
+
