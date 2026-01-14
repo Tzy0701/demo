@@ -61,9 +61,7 @@ def scan_touchless_dialog(finger_key, finger_name):
         "analysis": None
     }
 
-    # === Call Touchless API ===
-    TOUCHLESS_API_URL = API_URL   # reuse your configured backend
-
+    
     if st.button("🔬 Analyze Touchless Fingerprint", type="primary"):
 
         with st.spinner("Analyzing..."):
