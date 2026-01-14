@@ -61,7 +61,7 @@ def scan_touchless_dialog(finger_key, finger_name):
         "analysis": None
     }
 
-    
+    TOUCHLESS_API_URL = st.secrets.get("TOUCHLESS_API_URL", None)
     if st.button("🔬 Analyze Touchless Fingerprint", type="primary"):
 
         with st.spinner("Analyzing..."):
