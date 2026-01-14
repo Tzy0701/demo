@@ -30,9 +30,9 @@ def get_local_ip():
 def scan_touchless_dialog(finger_key, finger_name):
 
     username = st.session_state.username.replace(" ", "_")
-    local_ip = get_local_ip()
+    TOUCHLESS_CAPTURE_URL = st.secrets["TOUCHLESS_CAPTURE_URL"]
+    capture_url = f"{TOUCHLESS_CAPTURE_URL}/capture/{username}/{finger_key}"
 
-    capture_url = f"http://{local_ip}:8001/capture/{username}/{finger_key}"
 
     st.markdown(f"### 📱 Scan this QR Code to capture {finger_name}")
 
